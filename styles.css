@@ -84,29 +84,23 @@ button:hover {
 }
 
 #apiProgress {
-  width: 100%;
   background-color: #3cfdad;
   text-align: center;
   font-family: sans-serif;
   color: white;
-  line-height: 30px;
-  position: relative
 }
 
 #bar {
   width: 0%;
   height: 60px;
   background-color: #019e5d;
+  position: absolute;
 }
 
 #barText {
-  position: absolute;
-  top: 25%;
-  right: 45%;
-  text-align: center;
-  margin: 0 auto;
+ line-height: 60px;
+ position: relative;
 }
-
 .info {
     padding: 6px 8px;
     font: 14px/16px Arial, Helvetica, sans-serif;

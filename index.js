@@ -15,8 +15,8 @@ var limiter = new RateLimiter({rate: 50, interval: 1})*/
 //"radius" to draw around the input point (in decimal degrees)
 var RADIUS = .1;
 //" how frequently to draw points, in km
-var DENSITY = 7
-
+var DENSITY = 2.2
+  
 var $ = require('jquery');
 
 //server stuff for (eventual) file saving
@@ -94,6 +94,37 @@ legend.onAdd = function (map) {
 
 legend.addTo(mymap);
 
+var info = L.control();
+info.onAdd = function (map) {
+  this._div = L.DomUtil.create('div', 'info');
+  this.update();
+  return this._div;
+};
+
+info.update = function (props) {
+  this._div.innerHTML = '<h4>Public Transit Travel Time</h4>' + (props ?
+    '<b>' + props.travelTime.toFixed() + ' minutes' 
+    : 'Hover over map');
+};
+
+info.addTo(mymap);
+
+function highlightFeature(e) {
+  var layer = e.target;
+  info.update(layer.feature.properties);
+}
+
+function resetHighlight(e) {
+  info.update()
+}
+
+function onEachFeature(feature, layer) {
+  layer.on({
+    mouseover: highlightFeature,
+    mouseout: resetHighlight
+  });
+}
+
 var layerControl = L.control.layers(baseMaps).addTo(mymap);
 
 var result = mymap.on('click', onMapClick);
@@ -157,7 +188,10 @@ function makeRequest(startPt, time, points, name, index, limiter, goodPoints, si
           console.log('drawing features')
           var interpolated = drawTimes(filtered);
           //draw isochrones and add to layer control
-          var isochrones = L.geoJSON(interpolated, {style: style});
+          var isochrones = L.geoJSON(interpolated, {
+            style: style,
+            onEachFeature: onEachFeature
+          });
           var centerMark = L.marker([startPt.lat(), startPt.lng()]).addTo(mymap);
           var newLayer = L.layerGroup([isochrones, centerMark]).addTo(mymap);
           // clear variables
