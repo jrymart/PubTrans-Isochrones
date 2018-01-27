@@ -13,18 +13,20 @@ var limiter = new RateLimiter({rate: 50, interval: 1})*/
 
 
 //"radius" to draw around the input point (in decimal degrees)
-var RADIUS = .1;
+var RADIUS = .15;
 //" how frequently to draw points, in km
-var DENSITY = 2.2
-  
+var DENSITY = 3.3;
+
+var INTERPOLATION_SIZE = .4;
+
 var $ = require('jquery');
 
 //server stuff for (eventual) file saving
-var io = require('socket.io-client');
+//var io = require('socket.io-client');
 var RateLimiter = require('limiter').RateLimiter;
 //console.log(require)
 
-var socket = io.connect('https://localhost:3001');
+/*var socket = io.connect('https://localhost:3001');
 
 socket.on('data', function (data) {
   // handle data from server
@@ -32,7 +34,7 @@ socket.on('data', function (data) {
 
 socket.on('connect', function () {
   console.log('connected')
-});
+});*/
 
 var googleMapsClient = require('@google/maps').createClient({
   key: 'AIzaSyDzme8L5zUARdCqdW-y85mKz8p012GEiGE',
@@ -79,14 +81,14 @@ var baseMaps = {"Grayscale": grayscale,
 var legend = L.control({position: 'bottomright'});
 legend.onAdd = function (map) {
   var div = L.DomUtil.create('div', 'info legend'),
-      grades = [0, 10, 20, 30, 40, 50, 60, 70],
+      grades = ["0-10", "10-20", "20-30", "30-40", "40-50", "50-60", "60-70", "70-80", "80-90"],
       //labels = ["Travel Time (in minutes)"];
       labels = ['<10 Minutes', '<20 Minutes', '<30 Minutes', '<40 Minutes', '<50 Minutes', '<60 Minutes', '<70 Minutes', '70+ Minutes'];
   var htmlStr = '<h3>Travel Time</h3>';
   for (var i = 0; i < grades.length; i++) {
     htmlStr +=
-      '<i style="background:' + getColor(grades[i] + 1) + '"></i>' +
-      labels[i] + '<br>';
+      '<i style="background:' + getColor(grades[i]) + '"></i>' +
+      grades[i] +" Minutes" + '<br>';
   }
   div.innerHTML = htmlStr
   return div;
@@ -103,7 +105,7 @@ info.onAdd = function (map) {
 
 info.update = function (props) {
   this._div.innerHTML = '<h4>Public Transit Travel Time</h4>' + (props ?
-    '<b>' + props.travelTime.toFixed() + ' minutes' 
+    '<b>' + props.travelTime + ' minutes' 
     : 'Hover over map');
 };
 
@@ -145,15 +147,7 @@ function makeRequest(startPt, time, points, name, index, limiter, goodPoints, si
   var value;
   //limiter.removeTokens(1, function () {
     directionsService.route(request, function(response, status) {
-      //var endTime = new Date();
-      //var elapsed = startTime.getTime()-endTime.getTime();
-      //console.log(elapsed + "ms elapsed");
-      // if api calls are getting throttled, wait a second, try again
-      /*if (status == "OVER_QUERY_LIMIT") {
-        setTimeout(function () {
-          makeRequest(startPt, time, points, name, index, limiter, goodPoints, size);
-        }, 1000);
-      } else {*/
+      console.log('STATUS is ' + status);
         if (status == "OK") {
           // sum time and convert to minutes
           var legs = response.routes[0].legs;
@@ -166,16 +160,18 @@ function makeRequest(startPt, time, points, name, index, limiter, goodPoints, si
           console.log(status)
           // add to exposed variable
           window.noResults.push(request);
-          value = NaN;
+          //value = NaN;
+          value = 110;
         } else {
           console.log(status);
-          value = NaN;
+          //value = NaN;
+          value = 110;
         }
         pt.properties.travelTime = value
         if (!isNaN(value)) {
           // if the travel time actually exists, add this to the new feature list
           goodPoints.push(pt)
-        }
+        } 
         index ++;
         updateBar(index,size);
         // check to see if all the requests have returned
@@ -183,6 +179,9 @@ function makeRequest(startPt, time, points, name, index, limiter, goodPoints, si
           console.log('removing NaNs');
           window.points = points;
           // only interpolate from points with valid travel times
+          var center = turf.point([startPt.lat(), startPt.lng()]);
+          center.properties.travelTime = 0;
+          //goodPoints.push(center);
           var filtered = turf.featureCollection(goodPoints);
           window.filt = filtered;
           console.log('drawing features')
@@ -192,6 +191,18 @@ function makeRequest(startPt, time, points, name, index, limiter, goodPoints, si
             style: style,
             onEachFeature: onEachFeature
           });
+          //var pointsUsed = L.geoJSON(filtered).addTo(mymap);
+          var pointsUsed = L.geoJSON(null, {
+            pointToLayer: function(feature, latlng) {
+              var label = String(feature.properties.travelTime);
+              return new L.CircleMarker(latlng, {
+                                        radius: 1,
+              }).bindTooltip(label, {permanent: true, opacity: 0.7}).openTooltip();
+            }
+          });
+          
+          //pointsUsed.addData(filtered).addTo(mymap)
+  
           var centerMark = L.marker([startPt.lat(), startPt.lng()]).addTo(mymap);
           var newLayer = L.layerGroup([isochrones, centerMark]).addTo(mymap);
           // clear variables
@@ -199,6 +210,7 @@ function makeRequest(startPt, time, points, name, index, limiter, goodPoints, si
           filtered = false;
           goodPoints = false;
           points = false;
+          //center = false;
           clearBar();
           $("#apiProgress").slideUp(500);
           //directCopy(JSON.stringify(interpolated));
@@ -207,7 +219,7 @@ function makeRequest(startPt, time, points, name, index, limiter, goodPoints, si
           var toSave = {'name': name,
                         'geography': interpolated};
           // some day we will save the data :)
-          socket.emit('data', toSave);
+          //socket.emit('data', toSave);
         } else {
           var limit = 1000
           var start = Date.now();
@@ -215,6 +227,7 @@ function makeRequest(startPt, time, points, name, index, limiter, goodPoints, si
           while (now -start < limit) {
             now = Date.now();
           }
+          console.log(index);
           makeRequest(startPt, time, points, name, index, limiter, goodPoints, size);
         }
       //}
@@ -226,6 +239,7 @@ function makeRequest(startPt, time, points, name, index, limiter, goodPoints, si
 function getTimes(start, points, name) {
   console.log('doing ' + name)
   var size = points.features.length
+  //updateBar(0,size);
   console.log('' + size + ' points')
   var limiter = new RateLimiter(1, 50);
   var index = 0;
@@ -338,14 +352,23 @@ function getTimes(start, points, name) {
 
 // get map colors based on time
 function getColor(d) {
-  return d > 70 ? '#8c2d04' :   // 70 minutes
+  return d == "80-90" ? '#662506' :
+         d == "70-80" ? '#993404' :   // 70 minutes
+         d == "60-70"  ? '#cc4c02' :  //60 minutes
+         d == "50-60"  ? '#ec7014' : //50 minutes
+         d == "40-50"  ? '#fe9929' : // 40 minutes
+         d == "30-40"   ? '#fec44f' : // 30 minutes
+         d == "20-30"    ? '#fee391' : //20 minutes
+         d == "10-20"    ? '#fff7bc' : // 10 minutes
+                      '#ffffe5';
+  /*return d > 70 ? '#8c2d04' :   // 70 minutes
          d > 60  ? '#d94801' :  //60 minutes
          d > 50  ? '#f16913' : //50 minutes
          d > 40  ? '#fd8d3c' : // 40 minutes
          d > 30   ? '#fdae6b' : // 30 minutes
          d > 20    ? '#fdd0a2' : //20 minutes
          d > 10    ? '#fee6ce' : // 10 minutes
-                      '#fff5eb';
+                      '#fff5eb';*/
 }
 
 // the style function for coloring the interpolated polygons
@@ -362,15 +385,31 @@ function style(feature) {
 
 // this function takes in the point collection, and interpolates 
 function drawTimes(times) {
-  var minTimes = [10,20,30,40,50,60,70,80,90];
+  //Attempt at linear weighting
+  /*var tin = turf.tin(times, "travelTime");
+  for (let i=0; i< tin.features.length; i++) {
+    tin.features[i].properties.i = i;
+  }
+  var convex = turf.convex(times);
+  var pg = turf.pointGrid(convex, 1);
+  var tag = turf.tag(pg, tin, 'i', 'tin')
+  
+  tag.features.map(f => f.properties.travelTime = f.properties.tin ?
+                   turf.planepoint(f, tin.features[f.properties.tin]) :
+                   -999);*/
+  
+  var minTimes = [0, 10,20,30,40,50,60,70,80,90];
   /*var secTimes = []
   for (var i=0; i<minTimes.length; i++) {
     secTimes.push(minTimes*60);
   }*/
   var features = []
   //directCopy(JSON.stringify(features));
-  var grid = turf.interpolate(times, .4, {property: "travelTime", gridType: "hex"})//, {units: 'radians'});
+  var grid = turf.isobands(times, minTimes, {zProperty: "travelTime"});
+  console.log(grid);
+  //var grid = turf.interpolate(times, INTERPOLATION_SIZE, {property: "travelTime", gridType: "hex"})//, {units: 'radians'});
   return grid;
+  //return tag;
 }
                   
 var markerLayer = {};
@@ -410,7 +449,8 @@ $(document).ready(function() {
       $("#make").hide();
       $("#warning").show();
       $("#bad").click(function() {
-        $("#warning").slideUp();
+        $("make").show();
+        $("#warning").hide();
       });
     }
   });

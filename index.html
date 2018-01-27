@@ -56,6 +56,24 @@
         and other destinations of interest.
       </p>
       <h2>
+        Hey, these results look wrong!
+      </h2>
+      <p>
+        You're probably right.  A little bit of inspection shows that the generated maps are woefully inaccurate 
+        towards the center, but fairly good towards the edges.  I believe this is related to the 
+        <a href="https://en.wikipedia.org/wiki/Inverse_distance_weighting">inverse distance weighting (IDW)</a> 
+        algorithm that the interpolation function uses.  What this means is that any interpolated 
+        value is a function of all of the calculated points returned from Google Maps, each travel time weighted 
+        by its distance from the value being interpolated.  This means that a value very close to the center starting 
+        point is influenced (albeit only slightly) by the estimated times for the farthest point in the grid!  This is 
+        compounded by the radial nature of the data points used in the interpolation; there are more 'far' points then 
+        'close' ones, skewing the dataset.  A <a href="https://en.wikipedia.org/wiki/Bilinear_interpolation">bilinear</a> 
+        interpolation would be better suited to the data but has not yet proved readily available.  For now, let this 
+        site serve as a proof-of-concept for client-side isochrone generation, and rest assured that by hook or by crook, 
+        a more sensible interpolation will be available 
+        in the near future.
+      </p>
+      <h2>
         Some nitty-gritty:  
       </h2>
       <p>

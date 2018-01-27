@@ -74,6 +74,7 @@ button:hover {
 }
 
 #bodytext {
+  max-width: 700px;
   color: #373b3e;
   font-family: sans-serif;
   margin-left: 15px;
