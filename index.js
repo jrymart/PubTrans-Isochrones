@@ -318,6 +318,7 @@ var start;
 // what happens when you click the map
 function onMapClick(e) {
   mymap.removeLayer(markerLayer)
+  //$("#summary").hide()
   $("#warning").slideUp(500);
   $("#make").slideDown(500);
   
