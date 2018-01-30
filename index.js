@@ -60,6 +60,7 @@ var mymap = L.map('mapid').setView(startLatLon, 13);
 
 window.map = mymap;
 
+// add basemaps
 var streets = L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}', {
     attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://mapbox.com">Mapbox</a>',
     maxZoom: 18,
@@ -78,6 +79,7 @@ var baseMaps = {"Grayscale": grayscale,
                 "Streets": streets
                };
 
+//make a legend
 var legend = L.control({position: 'bottomright'});
 legend.onAdd = function (map) {
   var div = L.DomUtil.create('div', 'info legend'),
@@ -96,6 +98,7 @@ legend.onAdd = function (map) {
 
 legend.addTo(mymap);
 
+//hover overlay
 var info = L.control();
 info.onAdd = function (map) {
   this._div = L.DomUtil.create('div', 'info');
@@ -111,6 +114,7 @@ info.update = function (props) {
 
 info.addTo(mymap);
 
+//hover function 
 function highlightFeature(e) {
   var layer = e.target;
   info.update(layer.feature.properties);
@@ -131,6 +135,9 @@ var layerControl = L.control.layers(baseMaps).addTo(mymap);
 
 var result = mymap.on('click', onMapClick);
 
+// recursive fucntion that makes the request to the google api
+// checks if all the api calls have returned, and if so, make 
+// the isochrones and add to the map
 function makeRequest(startPt, time, points, name, index, limiter, goodPoints, size) {
   var pt = points.features[index];
   var coords = pt.geometry.coordinates
@@ -162,6 +169,10 @@ function makeRequest(startPt, time, points, name, index, limiter, goodPoints, si
           window.noResults.push(request);
           //value = NaN;
           value = 110;
+        } else if (status == "OVER_QUERY_LIMIT") {
+          $("#apiProgress").hide()
+          $("#warning").show()
+          return
         } else {
           console.log(status);
           //value = NaN;
@@ -264,90 +275,6 @@ function getTimes(start, points, name) {
   var elapsedTime;
   var newTime;
   makeRequest(startPt, departDate, points, name, index, limiter, goodPoints, size);
-  /*turf.featureEach(points, function(pt) {
-    var coords = pt.geometry.coordinates
-    console.log("on point " + coords);
-    var endPt = new google.maps.LatLng(coords[1], coords[0])
-    //build the request
-    var request = {
-      origin: startPt,
-      destination: endPt,
-      //mode: 'tranist',
-      //departure_time: departDate
-    };
-    console.log("eplat = " + endPt.lat())
-    //console.log(request)
-    var value;
-    // rate limit api calls
-    
-    //limiter.removeTokens(1, function () {
-      // make request available through console
-      window.requests.push(request)
-      // make API request
-      if (isNaN(startTime)) {
-        startTime = new Date();
-      } else {
-        newTime = new Date();
-        elapsedTime = startTime.getTime() - newTime.getTime();
-        console.log(elapsedTime + 'ms elapsed');
-      }
-      //googleMapsClient.directions(request, function(err, response) {
-        if (!err) {
-        //var endTime = new Date();
-        //var elapsed = startTime.getTime()-endTime.getTime();
-        //console.log(elapsed + "ms elapsed");
-        
-          // sum time and convert to minutes
-          var legs = response.routes[0].legs;
-          var time = 0
-          for (var i=0; i<legs.length; i++) {
-            time += legs[i].duration.value;
-          }
-          value = time/60;
-        } else if (err === 'timeout') {
-          console.log(err);
-          value = NaN;
-        } else if (err.json){
-          console.log(err.status)
-          window.noResults.push(request);
-          value = NaN;
-        } else {
-          console.log('network error');
-          value = NaN;
-        }
-        pt.properties.travelTime = value
-        if (!isNaN(value)) {
-          // if the travel time actually exists, add this to the new feature list
-          goodPoints.push(pt)
-        }
-        index ++
-        updateBar(index, size);
-        // check to see if all the requests have returned
-        if (index == size) {
-          console.log('removing NaNs');
-          window.points = points;
-          // only interpolate from points with valid travel times
-          var filtered = turf.featureCollection(goodPoints);
-          window.filt = filtered;
-          console.log('drawing features')
-          var interpolated = drawTimes(filtered);
-          //draw isochrones and add to layer control
-          var isochrones = L.geoJSON(interpolated, {style: style});
-          var centerMark = L.marker(start).addTo(mymap);
-          var newLayer = L.layerGroup([isochrones, centerMark]).addTo(mymap);
-          $("#apiProgress").slideUp(500);
-          //directCopy(JSON.stringify(interpolated));
-          window.interpolated = interpolated;
-          layerControl.addOverlay(newLayer, name);
-          var toSave = {'name': name,
-                        'geography': interpolated};
-          // some day we will save the data :)
-          socket.emit('data', toSave);
-        }
-        //results.push([points[i], value]);
-      });
-  //  });
-  });*/
 }
 
 // get map colors based on time
@@ -361,14 +288,6 @@ function getColor(d) {
          d == "20-30"    ? '#fee391' : //20 minutes
          d == "10-20"    ? '#fff7bc' : // 10 minutes
                       '#ffffe5';
-  /*return d > 70 ? '#8c2d04' :   // 70 minutes
-         d > 60  ? '#d94801' :  //60 minutes
-         d > 50  ? '#f16913' : //50 minutes
-         d > 40  ? '#fd8d3c' : // 40 minutes
-         d > 30   ? '#fdae6b' : // 30 minutes
-         d > 20    ? '#fdd0a2' : //20 minutes
-         d > 10    ? '#fee6ce' : // 10 minutes
-                      '#fff5eb';*/
 }
 
 // the style function for coloring the interpolated polygons
@@ -385,37 +304,18 @@ function style(feature) {
 
 // this function takes in the point collection, and interpolates 
 function drawTimes(times) {
-  //Attempt at linear weighting
-  /*var tin = turf.tin(times, "travelTime");
-  for (let i=0; i< tin.features.length; i++) {
-    tin.features[i].properties.i = i;
-  }
-  var convex = turf.convex(times);
-  var pg = turf.pointGrid(convex, 1);
-  var tag = turf.tag(pg, tin, 'i', 'tin')
-  
-  tag.features.map(f => f.properties.travelTime = f.properties.tin ?
-                   turf.planepoint(f, tin.features[f.properties.tin]) :
-                   -999);*/
-  
   var minTimes = [0, 10,20,30,40,50,60,70,80,90];
-  /*var secTimes = []
-  for (var i=0; i<minTimes.length; i++) {
-    secTimes.push(minTimes*60);
-  }*/
   var features = []
-  //directCopy(JSON.stringify(features));
   var grid = turf.isobands(times, minTimes, {zProperty: "travelTime"});
   console.log(grid);
-  //var grid = turf.interpolate(times, INTERPOLATION_SIZE, {property: "travelTime", gridType: "hex"})//, {units: 'radians'});
   return grid;
-  //return tag;
 }
                   
 var markerLayer = {};
-// what happens when you click the map
 
 var start;
+
+// what happens when you click the map
 function onMapClick(e) {
   mymap.removeLayer(markerLayer)
   $("#warning").slideUp(500);
@@ -433,10 +333,9 @@ function onMapClick(e) {
      //var pts = generateGrid(start,.01, 5);
 }
 
+// jquery dealing with button preses
 $(document).ready(function() {
   $("#submit").click(function(){
-    var checked = document.getElementById("checkbox").checked;
-    if (checked) {
      // $("#make").slideUp(500)
       $("#make").hide();
       $("#apiProgress").show();;
@@ -445,54 +344,11 @@ $(document).ready(function() {
       var pts = turf.pointGrid([start[1]-RADIUS, start[0]-RADIUS, start[1]+RADIUS, start[0]+RADIUS], DENSITY)
       var times = getTimes(start, pts, name);
       $("#lname").val('');
-    } else {
-      $("#make").hide();
-      $("#warning").show();
-      $("#bad").click(function() {
-        $("make").show();
-        $("#warning").hide();
-      });
-    }
   });
   $("#cancel").click(function(){    $("#make").slideUp(500);});
+  $("#bad").click(function(){ $("#warning").slideUp(500);});
 });
                   
-  /*var pts = turf.pointGrid([start[1]-RADIUS, start[0]-RADIUS, start[1]+RADIUS, start[0]+RADIUS], DENSITY)//0.01, {units: 'radians'});
-  //window.pts = pts;
-  var times;
-  // name the output layer and confirm that you want to use API CALLS
-  //var input = prompt("a name for your output layer", "[My Name Here]");
-  $("#submit").click(function(){
-    var checked = document.getElementById("checkbox").checked;
-    if (checked) {
-     // $("#make").slideUp(500)
-      $("#make").hide();
-      $("#apiProgress").show();;
-      var name = $("#lname").val();
-      console.log('name is ' + name);
-      times = getTimes(start, pts, name);
-      $("#lname").val('');
-    } else {
-      $("#make").hide();
-      $("#warning").show();
-      $("#bad").click(function() {
-        $("#warning").slideUp();
-      });
-    }
-  });
-  $("#cancel").click(function(){    $("#make").slideUp(500);
-  });
-  /*var input = ""
-  if (checked) {
-    times = getTimes(start, pts, input);
-  } else {
-    /*times = getDummyTimes(start, pts);
-    var features = drawTimes(times);
-    var isochrones = L.geoJSON(features, {style: style});
-    markerLayer = L.layerGroup([isochrones]).addTo(mymap);
-  }
-}*/
-
 // get fake data to draw 
 function getDummyTimes(start, pts) {
   turf.featureEach(pts, function(pt) {
@@ -501,14 +357,9 @@ function getDummyTimes(start, pts) {
     pt.properties.travelTime = dist*10000*60
   });
   return pts
-  /*var results = []
-  for (var i=0; i< pts.length; i++) {
-    var dist = Math.hypot(pts[i][0]-start[0], pts[i][1]-start[1]);
-    results.push([pts[i], dist*10000*60]);
-  }
-  return results;*/
 }
 
+// reset the progress bar
 function clearBar() {
   var bar = document.getElementById("bar");
   bar.style.width = '0%';
@@ -516,6 +367,7 @@ function clearBar() {
   text.innerHTML = '';
 }
 
+//update the progress bar
 function updateBar(index, size) {
   var percent = index/size
   var bar = document.getElementById("bar");
@@ -535,36 +387,3 @@ function directCopy(str){
   document.execCommand("Copy");
   document.oncopy = undefined;
 }
-
-
-/*var isochrones = L.geoJSON(result).addTo(mymap)
-var overlayMaps = {
-  "Isochrones": isochrones
-};
-
-L.control.layers(overlayMaps.addTo(mymap));
-*/
-
-/*var start = result[0];
-var points = result[1];
-var startPt = new google.maps.LatLng(start[0], start[1]);
-for (var i=0; i< points.length; i++) {
-  var endPt = new google.maps.LatLng(points[i][0], points[i][1])
-  var request = {
-    origin: startPt,
-    destination: endPt,
-    travelMode: 'TRANSIT'
-  }
-  directionsService.route(request, function(response, status) {
-    if (status == "OK") {
-      var warnings = document.getElementById("warnings_panel");
-      warnings.innerHTML = "" + response.routes[0].warnings + "";
-      getTime(response)
-    }
-  });
-}*/
-
-
-//test.apply(this, startLatLon)
-
-//var startLocation = new google.maps.LatLng.apply(this, startLatLon);

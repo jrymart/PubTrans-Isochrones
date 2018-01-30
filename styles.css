@@ -17,6 +17,8 @@ h1 {
   font-family: sans-serif;
 }
 
+/*input fields*/
+
 #lname {
   width: 50%;
   padding: 12px 20px;
@@ -24,6 +26,19 @@ h1 {
   background-color: #3c8cfd;
   border: none;
   color: white;
+}
+
+::placeholder { /* Chrome, Firefox, Opera, Safari 10.1+ */
+    color: white;
+    opacity: 1; /* Firefox */
+}
+
+:-ms-input-placeholder { /* Internet Explorer 10-11 */
+    color: white;
+}
+
+::-ms-input-placeholder { /* Microsoft Edge */
+    color: white;
 }
 
 #make {
@@ -84,6 +99,7 @@ button:hover {
   width: 15%;
 }
 
+/* progress bar */
 #apiProgress {
   background-color: #3cfdad;
   text-align: center;
@@ -102,6 +118,8 @@ button:hover {
  line-height: 60px;
  position: relative;
 }
+
+/* map elements */
 .info {
     padding: 6px 8px;
     font: 14px/16px Arial, Helvetica, sans-serif;
